@@ -1,0 +1,47 @@
+
+#include <SPI.h>
+#include <MFRC522.h>
+
+#define SS_PIN 10
+#define RST_PIN 9
+#define RELAY 7
+
+MFRC522 rfid(SS_PIN, RST_PIN);
+
+byte authorizedUID[] = {0xDE, 0xAD, 0xBE, 0xEF};
+
+bool motor = false;
+
+void setup() {
+  Serial.begin(9600);
+  SPI.begin();
+  rfid.PCD_Init();
+
+  pinMode(RELAY, OUTPUT);
+  digitalWrite(RELAY, HIGH);
+}
+
+void loop() {
+  if (!rfid.PICC_IsNewCardPresent()) return;
+  if (!rfid.PICC_ReadCardSerial()) return;
+
+  bool valid = rfid.uid.size == sizeof(authorizedUID);
+
+  for (byte i = 0; valid && i < sizeof(authorizedUID); i++) {
+    if (rfid.uid.uidByte[i] != authorizedUID[i])
+      valid = false;
+  }
+
+  if (valid) {
+    motor = !motor;
+    digitalWrite(RELAY, motor ? LOW : HIGH);
+
+    Serial.println(motor ? "MOTOR ON" : "MOTOR OFF");
+  } else {
+    Serial.println("INVALID RFID TAG");
+  }
+
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+  delay(1200);
+}
